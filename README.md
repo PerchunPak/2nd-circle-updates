@@ -5,7 +5,9 @@ often, so I created this script while was in the bus in hope, that they at least
 update files, so I can grab them.
 
 If you want to be notified too, [here](https://discord.gg/c9W8ngUFMz) is the server used for this
-script. The script will be active untill end of all circles. Then you need to host it somehow.
+script. You can also browse downloaded files [here](https://2nd-circle.perchun.it).
+
+The script will be active untill end of all circles in 2023. Then you need to host it somehow.
 
 ## How to host
 
