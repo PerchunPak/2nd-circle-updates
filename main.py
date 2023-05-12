@@ -181,8 +181,6 @@ async def main() -> None:
     new_data = await DataGetter().get_data()
     new_data["date"] = datetime.datetime.now().isoformat()
 
-    await report_to_discord(dictdiffer.diff(previous_run, new_data, ignore={"date"}))
-
     os.rename(
         "data/latest.json",
         "data/{}.json".format(
@@ -193,6 +191,8 @@ async def main() -> None:
     )
     with open("data/latest.json", "w") as data_file:
         json.dump(new_data, data_file)
+
+    await report_to_discord(dictdiffer.diff(previous_run, new_data, ignore={"date"}))
 
 
 if __name__ == "__main__":
