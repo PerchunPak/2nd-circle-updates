@@ -191,7 +191,7 @@ def _build_embed(
 
 
 def parse_embeds_to_report(diff: DIFF_TYPE) -> list[dict[str, str]]:
-    embeds = []
+    embeds: list[dict[str, str]] = []
 
     for type, key, value in diff:
         if type == "add":
@@ -227,7 +227,8 @@ def parse_embeds_to_report(diff: DIFF_TYPE) -> list[dict[str, str]]:
 
     embeds.sort(
         key=lambda embed: get_id_by_file_name(embed["description"][1:-1])
-        + (1000 if embed["description"][1:-1].endswith(".xlsx") else 0)
+        + (10000 if embed["description"][1:-1].endswith(".xlsx") else 0)
+        + (1000 if "soukrome" in embed["description"] else 0)
     )
     return embeds
 
