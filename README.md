@@ -1,0 +1,17 @@
+# Second circle updates notifier
+
+The official site where are posted schools for the second circle doesn't update the list of schools
+often, so I created this script while was in the bus in hope, that they at least automatically
+update files, so I can grab them.
+
+If you want to be notified too, [here](https://discord.gg/c9W8ngUFMz) is the server used for this
+script. The script will be active untill end of all circles. Then you need to host it somehow.
+
+## How to host
+
+Just find a place where you can run it periodically, and set these enviroment variables:
+
+- `URL_WEBHOOK` - URL of the Discord webhook, where to send notifications.
+- `USER_ID` - your Discord user ID to ping.
+- `SENTRY_DSN` - key for [Sentry](https://sentry.io). Needed to track the errors, because I do not
+    look into logs anyway.
