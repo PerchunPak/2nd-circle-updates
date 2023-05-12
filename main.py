@@ -143,10 +143,10 @@ def parse_embeds_to_report(diff: DIFF_TYPE) -> list[dict[str, str]]:
 
     for type, key, value in diff:
         if type == "add":
-            key, value = value
-            embeds.append(
-                _build_embed("added", "green", file_name=key, file_hash=value)
-            )
+            for file_name, file_hash in value:
+                embeds.append(
+                    _build_embed("added", "green", file_name=file_name, file_hash=file_hash)
+                )
         elif type == "change":
             key, (old_value, new_value) = value
             embeds.append(
@@ -159,10 +159,10 @@ def parse_embeds_to_report(diff: DIFF_TYPE) -> list[dict[str, str]]:
                 )
             )
         elif type == "remove":
-            key, value = value
-            embeds.append(
-                _build_embed("removed", "red", file_name=key, file_hash=value)
-            )
+            for file_name, file_hash in value:
+                embeds.append(
+                    _build_embed("removed", "red", file_name=file_name, file_hash=file_hash)
+                )
         else:
             try:
                 raise RuntimeError(f"Unknown type: {type}")
