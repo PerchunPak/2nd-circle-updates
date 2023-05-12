@@ -109,8 +109,9 @@ class DataGetter:
                     return False
 
                 response.raise_for_status()
-                await save_to_file(response, name)
-                return await response.read()
+                content = await response.read()
+                await save_to_file(content, name)
+                return content
 
     def _handle_result(self, file: bytes | t.Literal[False], name: str) -> None:
         if file is False:
@@ -119,7 +120,7 @@ class DataGetter:
         self._results[name] = hashlib.sha256(file).hexdigest()
 
 
-async def save_to_file(response: aiohttp.ClientResponse, name: str) -> None:
+async def save_to_file(content: bytes, name: str) -> None:
     if not DOWNLOAD_FILES:
         return
 
@@ -131,8 +132,7 @@ async def save_to_file(response: aiohttp.ClientResponse, name: str) -> None:
         f"data/saves/{'private' if is_private else 'free'}/{'excel' if is_excel else 'pdf'}/{number}.{'xlsx' if is_excel else 'pdf'}",
         "wb",
     ) as file:
-        async for chunk in response.content.iter_chunked(1024):
-            await file.write(chunk)
+        await file.write(content)
 
 
 async def report_to_discord(diff: DIFF_TYPE) -> None:
@@ -251,7 +251,7 @@ def prepare_folders() -> None:
 
 
 async def main() -> None:
-    sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], traces_sample_rate=1.0)
+    # sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], traces_sample_rate=1.0)
 
     prepare_folders()
     with open("data/latest.json", "r") as data_file:
@@ -259,6 +259,8 @@ async def main() -> None:
 
     new_data = await DataGetter().get_data()
     new_data["date"] = get_current_time().isoformat()
+    # new_data = previous_run
+    # previous_run = {"date": get_current_time().isoformat()}
 
     os.rename(
         "data/latest.json",
