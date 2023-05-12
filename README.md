@@ -15,3 +15,4 @@ Just find a place where you can run it periodically, and set these enviroment va
 - `USER_ID` - your Discord user ID to ping.
 - `SENTRY_DSN` - key for [Sentry](https://sentry.io). Needed to track the errors, because I do not
     look into logs anyway.
+- `DOWNLOAD_FILES` - set to anything (example `1`) if you want to download all the found files.
