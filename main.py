@@ -42,6 +42,7 @@ class RateLimiter:
     def __init__(self, limit: int) -> None:
         self.limit = limit
         self._counter = 0
+        self._semaphore = asyncio.Semaphore(limit)
 
         asyncio.ensure_future(self._loop())
 
@@ -49,10 +50,11 @@ class RateLimiter:
         while self._counter > self.limit:
             await asyncio.sleep(0.1)
 
+        await self._semaphore.acquire()
         self._counter += 1
 
     async def __aexit__(self, *_, **__) -> None:
-        pass
+        self._semaphore.release()
 
     async def _loop(self) -> None:
         while True:
