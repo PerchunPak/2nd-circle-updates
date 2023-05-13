@@ -3,6 +3,7 @@ import datetime
 import hashlib
 import json
 import os
+import sys
 import typing as t
 from zoneinfo import ZoneInfo
 
@@ -52,14 +53,17 @@ class RateLimiter:
             await asyncio.sleep(0.1)
 
         await self._semaphore.acquire()
+        logger.trace("Request started")
         self._counter += 1
 
     async def __aexit__(self, *_, **__) -> None:
+        logger.trace("Request ended")
         self._semaphore.release()
 
     async def _loop(self) -> None:
         while True:
             await asyncio.sleep(1)
+            logger.trace("Resetting rate limiter...")
             self._counter = 0
 
 
@@ -69,6 +73,7 @@ class DataGetter:
         self._rate_limiter = RateLimiter(10)
 
     async def get_data(self) -> dict[str, str]:
+        logger.info("Getting data from the server...")
         self._results = {}
         names = self._generate_names()
 
@@ -76,7 +81,9 @@ class DataGetter:
             self._session = session
             tasks = self._generate_tasks(names)
 
+            logger.info(f"Sending {len(tasks)} requests...")
             done, _ = await asyncio.wait(tasks)
+            logger.success(f"All {len(tasks)} requests sent!")
 
         for done_task in done:
             if done_task.exception() is not None:
@@ -109,6 +116,7 @@ class DataGetter:
                 headers={"User-Agent": "2nd-circle-updates"},
             ) as response:
                 if response.status == 404:
+                    logger.trace(f"{name!r}: 404")
                     return False
 
                 response.raise_for_status()
@@ -120,7 +128,9 @@ class DataGetter:
         if file is False:
             return
 
-        self._results[name] = hashlib.sha256(file).hexdigest()
+        hash = hashlib.sha256(file).hexdigest()
+        logger.trace(f"{name!r}: {hash}...")
+        self._results[name] = hash
 
 
 async def save_to_file(content: bytes, name: str) -> None:
@@ -130,17 +140,24 @@ async def save_to_file(content: bytes, name: str) -> None:
     is_private = "soukrome" in name
     is_excel = name.endswith(".xlsx")
     number = get_id_by_file_name(name)
+    path_to_save = f"data/saves/{'private' if is_private else 'free'}/{'excel' if is_excel else 'pdf'}/{number}.{'xlsx' if is_excel else 'pdf'}"
+
+    logger.trace(
+        f"Saving {name!r} to {path_to_save!r}... private={is_private} excel={is_excel} {number=}"
+    )
 
     async with aiofiles.open(
-        f"data/saves/{'private' if is_private else 'free'}/{'excel' if is_excel else 'pdf'}/{number}.{'xlsx' if is_excel else 'pdf'}",
+        path_to_save,
         "wb",
     ) as file:
         await file.write(content)
 
 
 async def report_to_discord(diff: DIFF_TYPE) -> None:
+    logger.info("Reporting to Discord...")
     async with aiohttp.ClientSession() as session:
         embeds = parse_embeds_to_report(diff)
+        logger.info(f"Sending {len(embeds)} embeds...")
         to_send = []
         for embed in embeds:
             to_send.append(embed)
@@ -152,12 +169,16 @@ async def report_to_discord(diff: DIFF_TYPE) -> None:
             to_send = []
 
         if len(to_send) > 0:
+            logger.debug(
+                f"Embeds remainder of dividing by 10: {len(to_send)}. Sending it now..."
+            )
             await _send_report(session, to_send)
 
 
 async def _send_report(
     session: aiohttp.ClientSession, embeds: list[dict[str, str]]
 ) -> None:
+    logger.debug(f"Sending another {len(embeds)} embeds...")
     async with session.post(
         URL_WEBHOOK,
         json={
@@ -168,7 +189,7 @@ async def _send_report(
     ) as response:
         if response.status == 429:  # rate limited
             to_sleep = (int((await response.json())["retry_after"]) / 1000) + 0.15
-            print(f"Discord rate limited me, waiting {to_sleep} seconds...")
+            logger.warning(f"Discord rate limited me, waiting {to_sleep} seconds...")
             await asyncio.sleep(to_sleep)
             await _send_report(session, embeds)
             return
@@ -238,8 +259,12 @@ def parse_embeds_to_report(diff: DIFF_TYPE) -> list[dict[str, str]]:
 
 def prepare_folders() -> None:
     if not os.path.exists("data"):
+        logger.info("No 'data' folder found, creating one...")
         os.mkdir("data")
     if not os.path.exists("data/latest.json"):
+        logger.info(
+            "No 'data/latest.json' file found, creating a stub... (delete it later)"
+        )
         with open("data/latest.json", "w") as data_file:
             json.dump({"date": get_current_time().isoformat()}, data_file)
 
@@ -253,9 +278,39 @@ def prepare_folders() -> None:
             os.makedirs(folder_to_create, exist_ok=True)
 
 
+def setup_logging() -> None:
+    """Setup logging for the addon."""
+    logger.remove(0)
+    level = int(
+        os.environ.get("LOG_LEVEL", 20)
+    )  # see https://loguru.readthedocs.io/en/stable/api/logger.html#levels
+    warning_level = 30
+
+    if level < warning_level:
+        logger.add(
+            sys.stdout,
+            level=level,
+            filter=lambda record: record["level"].no < warning_level,
+            colorize=True,
+            backtrace=True,
+            diagnose=True,
+        )
+    logger.add(
+        sys.stderr,
+        level=level,
+        filter=lambda record: record["level"].no >= warning_level,
+        colorize=True,
+        backtrace=True,
+        diagnose=True,
+    )
+    logger.debug("Logging was setup!")
+
+
 async def main() -> None:
+    setup_logging()
     if "SENTRY_DSN" in os.environ:
         sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], traces_sample_rate=1.0)
+        logger.debug("Sentry was setup!")
 
     prepare_folders()
     with open("data/latest.json", "r") as data_file:
@@ -276,6 +331,7 @@ async def main() -> None:
         json.dump(new_data, data_file)
 
     await report_to_discord(dictdiffer.diff(previous_run, new_data, ignore={"date"}))
+    logger.success("Done! Exiting...")
 
 
 if __name__ == "__main__":
