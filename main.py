@@ -14,7 +14,6 @@ import sentry_sdk
 from loguru import logger
 
 URL_WEBHOOK = os.environ["URL_WEBHOOK"]
-USER_ID = os.environ["USER_ID"]
 DOWNLOAD_FILES = bool(os.environ.get("DOWNLOAD_FILES"))
 
 
@@ -182,9 +181,9 @@ async def _send_report(
     async with session.post(
         URL_WEBHOOK,
         json={
-            "content": f"<@{USER_ID}>",
+            "content": f"@everyone",
             "embeds": embeds,
-            "allowed_mentions": {"parse": ["roles", "users", "everyone"]},
+            "allowed_mentions": {"parse": ["everyone"]},
         },
     ) as response:
         if response.status == 429:  # rate limited
