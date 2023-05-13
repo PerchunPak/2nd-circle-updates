@@ -254,7 +254,8 @@ def prepare_folders() -> None:
 
 
 async def main() -> None:
-    sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], traces_sample_rate=1.0)
+    if "SENTRY_DSN" in os.environ:
+        sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], traces_sample_rate=1.0)
 
     prepare_folders()
     with open("data/latest.json", "r") as data_file:
