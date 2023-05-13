@@ -10,6 +10,7 @@ import aiofiles
 import aiohttp
 import dictdiffer
 import sentry_sdk
+from loguru import logger
 
 URL_WEBHOOK = os.environ["URL_WEBHOOK"]
 USER_ID = os.environ["USER_ID"]
@@ -253,7 +254,7 @@ def prepare_folders() -> None:
 
 
 async def main() -> None:
-    # sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], traces_sample_rate=1.0)
+    sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], traces_sample_rate=1.0)
 
     prepare_folders()
     with open("data/latest.json", "r") as data_file:
@@ -261,8 +262,6 @@ async def main() -> None:
 
     new_data = await DataGetter().get_data()
     new_data["date"] = get_current_time().isoformat()
-    # new_data = previous_run
-    # previous_run = {"date": get_current_time().isoformat()}
 
     os.rename(
         "data/latest.json",
