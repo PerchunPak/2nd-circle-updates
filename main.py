@@ -14,7 +14,6 @@ import sentry_sdk
 from loguru import logger
 
 URL_WEBHOOK = os.environ["URL_WEBHOOK"]
-DOWNLOAD_FILES = bool(os.environ.get("DOWNLOAD_FILES"))
 
 
 # fmt: off
@@ -133,9 +132,6 @@ class DataGetter:
 
 
 async def save_to_file(content: bytes, name: str) -> None:
-    if not DOWNLOAD_FILES:
-        return
-
     is_private = "soukrome" in name
     is_excel = name.endswith(".xlsx")
     number = get_id_by_file_name(name)
@@ -267,14 +263,13 @@ def prepare_folders() -> None:
         with open("data/latest.json", "w") as data_file:
             json.dump({"date": get_current_time().isoformat()}, data_file)
 
-    if DOWNLOAD_FILES:
-        for folder_to_create in [
-            "data/saves/free/pdf",
-            "data/saves/free/excel",
-            "data/saves/private/pdf",
-            "data/saves/private/excel",
-        ]:
-            os.makedirs(folder_to_create, exist_ok=True)
+    for folder_to_create in [
+        "data/saves/free/pdf",
+        "data/saves/free/excel",
+        "data/saves/private/pdf",
+        "data/saves/private/excel",
+    ]:
+        os.makedirs(folder_to_create, exist_ok=True)
 
 
 def setup_logging() -> None:

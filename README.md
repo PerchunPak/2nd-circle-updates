@@ -16,7 +16,5 @@ Just find a place where you can run it periodically, and set these enviroment va
 - `URL_WEBHOOK` - URL of the Discord webhook, where to send notifications.
 - (optional) `SENTRY_DSN` - key for [Sentry](https://sentry.io). Needed to track the errors,
     because I do not look into logs anyway.
-- (optional) `DOWNLOAD_FILES` - set to anything (example `1`) if you want to download all the found
-    files.
 - (debug) `LOG_LEVEL` - see [Loguru's docs](https://loguru.readthedocs.io/en/stable/api/logger.html#levels)
     for possible values. Default is `INFO` (20).
