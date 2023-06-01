@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import typing as t
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import aiofiles
@@ -13,7 +14,7 @@ import dictdiffer
 import sentry_sdk
 from loguru import logger
 
-URL_WEBHOOK = os.environ["URL_WEBHOOK"]
+URL_WEBHOOK = ""#os.environ["URL_WEBHOOK"]
 
 
 # fmt: off
@@ -252,24 +253,53 @@ def parse_embeds_to_report(diff: DIFF_TYPE) -> list[dict[str, str]]:
     return embeds
 
 
+def move_logs_to_its_folder() -> None:
+    for log_file in Path(".").glob("data/2023*.json"):
+        log_file.rename("data/logs/" + log_file.name)
+
+    if os.path.exists("data/latest.json"):
+        Path("data/latest.json").rename("data/logs/latest.json")
+
+
 def prepare_folders() -> None:
     if not os.path.exists("data"):
         logger.info("No 'data' folder found, creating one...")
         os.mkdir("data")
-    if not os.path.exists("data/latest.json"):
-        logger.info(
-            "No 'data/latest.json' file found, creating a stub... (delete it later)"
-        )
-        with open("data/latest.json", "w") as data_file:
-            json.dump({"date": get_current_time().isoformat()}, data_file)
 
     for folder_to_create in [
+        "data/logs",
         "data/saves/free/pdf",
         "data/saves/free/excel",
         "data/saves/private/pdf",
         "data/saves/private/excel",
     ]:
         os.makedirs(folder_to_create, exist_ok=True)
+
+    move_logs_to_its_folder()
+    if not os.path.exists("data/logs/latest.json"):
+        logger.info(
+            "No 'data/logs/latest.json' file found, creating a stub... (delete it later)"
+        )
+        with open("data/logs/latest.json", "w") as data_file:
+            json.dump({"date": get_current_time().isoformat()}, data_file)
+
+
+def clear_old_logs() -> None:
+    hashes_to_delete = set()
+    for file in Path("data/logs").glob("*.json"):
+        if file.name == "latest.json":
+            continue
+
+        with open(file) as data_file:
+            as_json = json.load(data_file)
+            del as_json["date"]
+        hash = hashlib.sha256(json.dumps(as_json, sort_keys=True).encode()).hexdigest()
+
+        if hash in hashes_to_delete:
+            logger.info(f"Deleting duplicate log file: {file.name!r}")
+            file.unlink()
+        else:
+            hashes_to_delete.add(hash)
 
 
 def setup_logging() -> None:
@@ -307,21 +337,22 @@ async def main() -> None:
         logger.debug("Sentry was setup!")
 
     prepare_folders()
-    with open("data/latest.json", "r") as data_file:
+    clear_old_logs()
+    with open("data/logs/latest.json", "r") as data_file:
         previous_run = json.load(data_file)
 
     new_data = await DataGetter().get_data()
     new_data["date"] = get_current_time().isoformat()
 
     os.rename(
-        "data/latest.json",
-        "data/{}.json".format(
+        "data/logs/latest.json",
+        "data/logs/{}.json".format(
             datetime.datetime.fromisoformat(previous_run["date"]).strftime(
                 "%Y %m %d_%H %M %S"
             )
         ),
     )
-    with open("data/latest.json", "w") as data_file:
+    with open("data/logs/latest.json", "w") as data_file:
         json.dump(new_data, data_file)
 
     await report_to_discord(dictdiffer.diff(previous_run, new_data, ignore={"date"}))
