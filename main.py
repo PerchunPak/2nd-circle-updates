@@ -5,11 +5,14 @@ import json
 import os
 import sys
 import typing as t
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import aiofiles
 import aiohttp
 import dictdiffer
+import numpy
+import pandas
 import sentry_sdk
 from loguru import logger
 
@@ -264,8 +267,10 @@ def prepare_folders() -> None:
             json.dump({"date": get_current_time().isoformat()}, data_file)
 
     for folder_to_create in [
+        "data/saves/free/diffs",
         "data/saves/free/pdf",
         "data/saves/free/excel",
+        "data/saves/private/diffs",
         "data/saves/private/pdf",
         "data/saves/private/excel",
     ]:
@@ -300,6 +305,32 @@ def setup_logging() -> None:
     logger.debug("Logging was setup!")
 
 
+def create_diffs() -> None:
+    for file in Path("data/saves").glob("**/*.xlsx"):  # fixme diffs/some.xlsx is counted too
+        id = int(file.name.removesuffix(".xlsx"))
+        previous_version_file = file / ".." / f"{id - 1}.xlsx"
+        if id - 1 < 1 or not previous_version_file.exists():
+            continue
+
+        old_table = pandas.read_excel(previous_version_file).replace(numpy.nan, None)
+        new_table = pandas.read_excel(file).replace(numpy.nan, None)
+
+        comparison_values = old_table.values == new_table.values
+
+        rows, cols = numpy.where(comparison_values == False)
+
+        for item in zip(rows, cols):
+            old_table.iloc[item[0], item[1]] = "{} --> {}".format(
+                old_table.iloc[item[0], item[1]], new_table.iloc[item[0], item[1]]
+            )
+
+        old_table.to_excel(
+            file / ".." / ".." / "diffs" / f"{id - 1}_{id}.xlsx",
+            index=False,
+            header=True,
+        )
+
+
 async def main() -> None:
     setup_logging()
     if "SENTRY_DSN" in os.environ:
@@ -307,24 +338,25 @@ async def main() -> None:
         logger.debug("Sentry was setup!")
 
     prepare_folders()
-    with open("data/latest.json", "r") as data_file:
-        previous_run = json.load(data_file)
+    # with open("data/latest.json", "r") as data_file:
+    #     previous_run = json.load(data_file)
+    #
+    # new_data = await DataGetter().get_data()
+    # new_data["date"] = get_current_time().isoformat()
+    #
+    # os.rename(
+    #     "data/latest.json",
+    #     "data/{}.json".format(
+    #         datetime.datetime.fromisoformat(previous_run["date"]).strftime(
+    #             "%Y %m %d_%H %M %S"
+    #         )
+    #     ),
+    # )
+    # with open("data/latest.json", "w") as data_file:
+    #     json.dump(new_data, data_file)
 
-    new_data = await DataGetter().get_data()
-    new_data["date"] = get_current_time().isoformat()
-
-    os.rename(
-        "data/latest.json",
-        "data/{}.json".format(
-            datetime.datetime.fromisoformat(previous_run["date"]).strftime(
-                "%Y %m %d_%H %M %S"
-            )
-        ),
-    )
-    with open("data/latest.json", "w") as data_file:
-        json.dump(new_data, data_file)
-
-    await report_to_discord(dictdiffer.diff(previous_run, new_data, ignore={"date"}))
+    create_diffs()
+    # await report_to_discord(dictdiffer.diff({"2023_dalsi_kola_PR_skoly_soukrome-33.xlsx": "bd2317d75991238d4ad0966d2b0ee3aacc553abf9eb4e3f520b3b98dcef828a9"}, {"2023_dalsi_kola_PR_skoly_soukrome-33.xlsx": "bd2317d75991238d4ad0966d2b0ee3aacc553abf9eb4e3f520b3b98dcef828a9", "2023_dalsi_kola_PR_skoly_soukrome-34.xlsx": "bd2317d75991238d4ad0966d2b0ee3aacc553abf9eb4e3f520b3b98dcef828a9"}, ignore={"date"}))
     logger.success("Done! Exiting...")
 
 
